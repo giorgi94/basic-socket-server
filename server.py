@@ -78,19 +78,13 @@ class Server:
                 client_connection, client_address = self.socket.accept()
 
                 try:
-                    request: HttpRequest = self.handle_request(client_connection)
-
-                    print(f"Reqested: {request.method} on address {request.url}")
-                    print()
-
-                except Exception:
+                    self.handle_request(client_connection)
+                except Exception as e:
+                    print("ERROR", e)
                     badreq = HTTPStatus.BAD_REQUEST
                     response = f"HTTP/1.1 {badreq.value} {badreq.name}\n\nBad Request"
                     client_connection.sendall(response.encode())
                     client_connection.close()
-
-                # Send HTTP response
-                self.handle_response(client_connection)
 
             except KeyboardInterrupt:
                 break
@@ -98,19 +92,40 @@ class Server:
         # Close socket
         self.socket.close()
 
-    def handle_request(self, client_connection: socket) -> HttpRequest:
+    def handle_request(self, client: socket):
 
-        req = HttpRequest(client_connection)
+        request = HttpRequest(client)
 
-        return req
+        connection = request.headers.get("connection", "")
 
-    def handle_response(self, client_connection: socket):
-        with open("./index.html", "rb") as fp:
+        if connection == "Upgrade":
+
+            return self.upgrade(request, client)
+
+        handlers = {"GET": self.get, "POST": self.post}
+
+        return self.handle_response(client)
+
+    def handle_response(self, client: socket):
+        with open("./public/index.html", "rb") as fp:
             content = fp.read()
 
         response = b"HTTP/1.0 200 OK" + CONTENT_SEPARATOR + content
-        client_connection.sendall(response)
-        client_connection.close()
+        client.sendall(response)
+        client.close()
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+
+        return
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        return
+
+    def upgrade(self, request: HttpRequest, client: socket):
+
+        # is_websocket = req.headers.get("Upgrade") == "websocket"
+
+        return
 
 
 if __name__ == "__main__":

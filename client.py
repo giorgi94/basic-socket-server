@@ -5,49 +5,21 @@ from urllib.parse import quote, unquote
 
 r = requests.get("http://localhost:8000/page/?a=11&b=23")
 
-# r = requests.post("http://localhost:8000/page/", data={"name": "gio", "age": 29})
+b"GET / HTTP/1.1\r\nHost: localhost:8000\r\nConnection: Upgrade\r\nPragma: no-cache\r\nCache-Control: no-cache\r\nUser-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.5060.134 Safari/537.36\r\nUpgrade: websocket\r\nOrigin: http://localhost:8000\r\nSec-WebSocket-Version: 13\r\nAccept-Encoding: gzip, deflate, br\r\nAccept-Language: en-US,en;q=0.9\r\nCookie: csrftoken=1Mui9kkdtVnqCgkolj9LQXk9vAjurufoNg9gr7r54ifoA1GlrdZ7LCFvxIeZp0rE; _xsrf=2|239c7e35|4244b8edf3f99ad3d4b51f96f96a8bf4|1658684105\r\nSec-WebSocket-Key: mqCIzcnwN8/nJ/ldblBEdw==\r\nSec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n\r\n"
 
 
-req = [
-    "GET /page/?page=12&ab=12#dgdfg HTTP/1.1",
-    "Host: localhost:8000",
-    "Connection: keep-alive",
-    "Cache-Control: max-age=0",
-    "Upgrade-Insecure-Requests: 1",
-    "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.5060.134 Safari/537.36",
-    "Accept-Language: en-US",
-    "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Sec-GPC: 1",
-    "Sec-Fetch-Site: none",
-    "Sec-Fetch-Mode: navigate",
-    "Sec-Fetch-User: ?1",
-    "Sec-Fetch-Dest: document",
-    "Accept-Encoding: gzip, deflate, br",
-    "Cookie: csrftoken=1Mui9kkdtVnqCgkolj9LQXk9vAjurufoNg9gr7r54ifoA1GlrdZ7LCFvxIeZp0rE; _xsrf=2|239c7e35|4244b8edf3f99ad3d4b51f96f96a8bf4|1658684105",
-    "",
-    "",
-]
-
-# req_info_praser = re.compile(r"(?P<method>[A-Z]+)\s(?P<url>.*?(?=\s))")
-# req_info = req_info_praser.search(req[0])
-
-# method = req_info.group("method")
-# url = req_info.group("url")
-
-# print(method)
-# print(url)
-
-# print(quote("/my+page/.dsf;/?page=12&page=23"))
-
-
-# ampersand ("&")
-# dollar ("$")
-# plus sign ("+")
-# comma (",")
-# forward slash ("/")
-# colon (":")
-# semi-colon (";")
-# equals ("=")
-# question mark ("?")
-# 'At' symbol ("@")
-# pound ("#").
+{
+    "Host": "localhost:8000",
+    "Connection": "Upgrade",
+    "Pragma": "no-cache",
+    "Cache-Control": "no-cache",
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.5060.134 Safari/537.36",
+    "Upgrade": "websocket",
+    "Origin": "http://localhost:8000",
+    "Sec-WebSocket-Version": "13",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Cookie": "csrftoken=1Mui9kkdtVnqCgkolj9LQXk9vAjurufoNg9gr7r54ifoA1GlrdZ7LCFvxIeZp0rE; _xsrf=2|239c7e35|4244b8edf3f99ad3d4b51f96f96a8bf4|1658684105",
+    "Sec-WebSocket-Key": "9HDQlRYwUgvjy3ApK8U2BQ==",
+    "Sec-WebSocket-Extensions": "permessage-deflate; client_max_window_bits",
+}
