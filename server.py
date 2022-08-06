@@ -1,15 +1,25 @@
 import re
 import socket
+from hashlib import sha1
 from http import HTTPStatus
-from urllib.parse import quote, unquote, urlparse, parse_qs
+from base64 import b64decode, b64encode
+from urllib.parse import parse_qs, quote, unquote, urlparse
+from typing import Set
 
 LINE_BREAK = b"\r\n"
 CONTENT_SEPARATOR = LINE_BREAK * 2
+
+SEC_WEBSOCKET_KEY = "258EAFA5-E914-47DA-95CA-C5AB0DC85B1"
+
+
+# b64encode: to base64
 
 
 class HttpRequest:
     def __init__(self, client_connection: socket) -> None:
         body: bytes = client_connection.recv(1024)
+
+        self._body = body
 
         info_ind = body.find(LINE_BREAK)
         head_ind = body.find(CONTENT_SEPARATOR)
@@ -63,11 +73,12 @@ class Server:
     def __init__(self, socket_address) -> None:
         self.SERVER_HOST, self.SERVER_PORT = socket_address
 
-        # Create socket
+        self.clients: Set[socket.socket] = set()
+
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.bind(socket_address)
-        self.socket.listen(1)
+        self.socket.listen(5)
 
     def run(self):
 
@@ -77,55 +88,102 @@ class Server:
             try:
                 client_connection, client_address = self.socket.accept()
 
-                try:
-                    self.handle_request(client_connection)
-                except Exception as e:
-                    print("ERROR", e)
-                    badreq = HTTPStatus.BAD_REQUEST
-                    response = f"HTTP/1.1 {badreq.value} {badreq.name}\n\nBad Request"
-                    client_connection.sendall(response.encode())
-                    client_connection.close()
+                self.clients.add(client_connection)
 
+                self.handle_request(client_connection)
+            except Exception as error:
+                print("ERROR:", error)
+                return self.send_bad_request(client_connection)
             except KeyboardInterrupt:
                 break
+
+        for client in self.clients:
+            client.close()
 
         # Close socket
         self.socket.close()
 
-    def handle_request(self, client: socket):
+    def handle_request(self, client: socket.socket):
 
         request = HttpRequest(client)
 
-        connection = request.headers.get("connection", "")
+        print(client, request._body.decode())
+        print("---\n\n")
+
+        connection = request.headers.get("Connection", "")
 
         if connection == "Upgrade":
 
             return self.upgrade(request, client)
 
-        handlers = {"GET": self.get, "POST": self.post}
+        # handlers = {"GET": self.get, "POST": self.post}
 
-        return self.handle_response(client)
+        return self.get(request, client)
 
-    def handle_response(self, client: socket):
+    def close_client(self, client):
+        client.close()
+
+        if client in self.clients:
+            self.clients.remove(client)
+
+    def send_bad_request(self, client: socket.socket):
+        badreq = HTTPStatus.BAD_REQUEST
+        response = f"HTTP/1.1 {badreq.value} {badreq.name}\n\nBad Request"
+        client.sendall(response.encode())
+
+        self.close_client(client)
+
+    def get(self, request: HttpRequest, client: socket.socket) -> HttpResponse:
+
         with open("./public/index.html", "rb") as fp:
             content = fp.read()
 
         response = b"HTTP/1.0 200 OK" + CONTENT_SEPARATOR + content
         client.sendall(response)
-        client.close()
 
-    def get(self, request: HttpRequest) -> HttpResponse:
+        self.close_client(client)
 
+    def post(self, request: HttpRequest, client: socket.socket) -> HttpResponse:
         return
 
-    def post(self, request: HttpRequest) -> HttpResponse:
-        return
+    def upgrade(self, request: HttpRequest, client: socket.socket):
 
-    def upgrade(self, request: HttpRequest, client: socket):
+        is_websocket = request.headers.get("Upgrade") == "websocket"
 
-        # is_websocket = req.headers.get("Upgrade") == "websocket"
+        if not is_websocket:
+            return self.send_bad_request(client)
 
-        return
+        sec_websocket_key = request.headers["Sec-WebSocket-Key"]
+
+        print(f"{sec_websocket_key} is connected...")
+
+        headers = self.prepare_handshake_headers(sec_websocket_key)
+
+        print(headers.decode())
+
+        client.sendall(headers)
+
+    def create_socket_accept_key(self, sec_websocket_key: str) -> bytes:
+        key = sha1((sec_websocket_key + SEC_WEBSOCKET_KEY).encode())
+
+        return b64encode(key.digest())
+
+    def prepare_handshake_headers(self, sec_websocket_key: str):
+        accept_key = self.create_socket_accept_key(sec_websocket_key)
+
+        headers = (
+            LINE_BREAK.join(
+                [
+                    b"HTTP/1.1 101 Switching Protocols",
+                    b"Upgrade: websocket",
+                    b"Connection: Upgrade",
+                    b"Sec-WebSocket-Accept: " + accept_key,
+                ]
+            )
+            + LINE_BREAK
+        )
+
+        return headers
 
 
 if __name__ == "__main__":
