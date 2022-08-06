@@ -1,10 +1,11 @@
 import re
+import select
 import socket
+from base64 import b64decode, b64encode
 from hashlib import sha1
 from http import HTTPStatus
-from base64 import b64decode, b64encode
-from urllib.parse import parse_qs, quote, unquote, urlparse
 from typing import Set
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 LINE_BREAK = b"\r\n"
 CONTENT_SEPARATOR = LINE_BREAK * 2
@@ -78,32 +79,50 @@ class Server:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.bind(socket_address)
+
         self.socket.listen(5)
 
     def run(self):
-
         print("Listening on port %s ...\n\n" % self.SERVER_PORT)
+
+        sockets_list = [self.socket]
 
         while True:
             try:
-                client_connection, client_address = self.socket.accept()
+                read_sockets, _, exception_sockets = select.select(
+                    sockets_list, [], sockets_list
+                )
 
-                self.clients.add(client_connection)
+                for notified_socket in read_sockets:
+                    if notified_socket == self.socket:
+                        client_socket, client_address = self.socket.accept()
 
-                self.handle_request(client_connection)
-            except Exception as error:
-                print("ERROR:", error)
-                return self.send_bad_request(client_connection)
+                        try:
+                            closed = self.handle_request(client_socket)
+                        except Exception as error:
+                            print("ERROR:", error)
+                            return self.send_bad_request(client_socket)
+
+                        if closed:
+                            continue
+
+                        sockets_list.append(client_socket)
+                        self.clients.add(client_socket)
+                    else:
+                        print("\n\nClient: ", notified_socket)
+
+                for notified_socket in exception_sockets:
+                    sockets_list.remove(notified_socket)
+                    self.clients.remove(notified_socket)
+            except Exception as err:
+                print("Error:", err)
+                break
             except KeyboardInterrupt:
                 break
 
-        for client in self.clients:
-            client.close()
-
-        # Close socket
         self.socket.close()
 
-    def handle_request(self, client: socket.socket):
+    def handle_request(self, client: socket.socket) -> False:
 
         request = HttpRequest(client)
 
@@ -113,12 +132,14 @@ class Server:
         connection = request.headers.get("Connection", "")
 
         if connection == "Upgrade":
-
-            return self.upgrade(request, client)
+            self.upgrade(request, client)
+            return False
 
         # handlers = {"GET": self.get, "POST": self.post}
 
-        return self.get(request, client)
+        self.get(request, client)
+
+        return True
 
     def close_client(self, client):
         client.close()

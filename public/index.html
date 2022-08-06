@@ -14,11 +14,16 @@
 
 
     <script>
+        const socket = new WebSocket('ws://localhost:8000')
+
+        socket.onopen = (event) => {
+            console.log('WebSocket is connected!')
+            socket.send("hello")
+        }
 
 
         /*
 
-                const socket = new WebSocket('ws://localhost:8000')
                 socket.onopen = (event) => {
                     console.log('WebSocket is connected!')
                     socket.send(data)
