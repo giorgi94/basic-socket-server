@@ -85,12 +85,12 @@ class Server:
     def run(self):
         print("Listening on port %s ...\n\n" % self.SERVER_PORT)
 
-        sockets_list = [self.socket]
+        self.sockets_list = [self.socket]
 
         while True:
             try:
                 read_sockets, _, exception_sockets = select.select(
-                    sockets_list, [], sockets_list
+                    self.sockets_list, [], self.sockets_list
                 )
 
                 for notified_socket in read_sockets:
@@ -106,16 +106,16 @@ class Server:
                         if closed:
                             continue
 
-                        sockets_list.append(client_socket)
+                        self.sockets_list.append(client_socket)
                         self.clients.add(client_socket)
                     else:
                         print("\n\nClient: ", notified_socket)
 
                 for notified_socket in exception_sockets:
-                    sockets_list.remove(notified_socket)
+                    self.sockets_list.remove(notified_socket)
                     self.clients.remove(notified_socket)
             except Exception as err:
-                print("Error:", err)
+                print("Error (2):", err)
                 break
             except KeyboardInterrupt:
                 break
@@ -183,6 +183,7 @@ class Server:
         print(headers.decode())
 
         client.sendall(headers)
+        client.close()
 
     def create_socket_accept_key(self, sec_websocket_key: str) -> bytes:
         key = sha1((sec_websocket_key + SEC_WEBSOCKET_KEY).encode())
