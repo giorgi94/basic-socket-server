@@ -4,16 +4,14 @@ import socket
 from base64 import b64decode, b64encode
 from hashlib import sha1
 from http import HTTPStatus
-from typing import Set
+from typing import Set, List
 from urllib.parse import parse_qs, quote, unquote, urlparse
+import threading
 
 LINE_BREAK = b"\r\n"
 CONTENT_SEPARATOR = LINE_BREAK * 2
 
 SEC_WEBSOCKET_KEY = "258EAFA5-E914-47DA-95CA-C5AB0DC85B1"
-
-
-# b64encode: to base64
 
 
 class HttpRequest:
@@ -70,6 +68,7 @@ class HttpResponse:
         return self.response
 
 
+"""
 class Server:
     def __init__(self, socket_address) -> None:
         self.SERVER_HOST, self.SERVER_PORT = socket_address
@@ -195,9 +194,130 @@ class Server:
         )
 
         return headers
+"""
+
+clients: Set[socket.socket] = set()
+sockets_list: List[socket.socket] = []
+
+
+def remove_client(client):
+    print("\n\nRemove:", client)
+    clients.remove(client)
+    sockets_list.remove(client)
+
+
+def add_client(client):
+    print("\n\nAdd:", client)
+
+    clients.add(client)
+    if client not in sockets_list:
+        sockets_list.append(client)
+
+
+def create_socket_accept_key(sec_websocket_key: str) -> bytes:
+    key = sha1((sec_websocket_key + SEC_WEBSOCKET_KEY).encode())
+
+    return b64encode(key.digest())
+
+
+def prepare_handshake_headers(sec_websocket_key: str):
+    accept_key = create_socket_accept_key(sec_websocket_key)
+
+    headers = (
+        LINE_BREAK.join(
+            [
+                b"HTTP/1.1 101 Switching Protocols",
+                b"Upgrade: websocket",
+                b"Connection: Upgrade",
+                b"Sec-WebSocket-Accept: " + accept_key,
+            ]
+        )
+        + LINE_BREAK
+    )
+
+    return headers
+
+
+def handle_connection_upgrade(
+    request: HttpRequest, server: socket.socket, client: socket.socket
+):
+
+    sec_websocket_key = request.headers["Sec-WebSocket-Key"]
+
+    print(f"\n\n\n{sec_websocket_key} is connected...")
+
+    headers = prepare_handshake_headers(sec_websocket_key)
+
+    client.sendall(headers)
+
+
+def handle_http(request: HttpRequest, server: socket.socket, client: socket.socket):
+
+    with open("./public/index.html", "rb") as fp:
+        content = fp.read()
+
+    response = b"HTTP/1.0 200 OK" + CONTENT_SEPARATOR + content
+    client.sendall(response)
+
+    client.close()
+    remove_client(client)
+
+
+def handle_request(server: socket.socket, client: socket.socket):
+
+    request = HttpRequest(client)
+
+    connection = request.headers.get("Connection", "")
+
+    if connection == "Upgrade":
+        handle_connection_upgrade(request, server, client)
+    else:
+        handle_http(request, server, client)
+
+
+def runServer(host, port):
+
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server_socket.bind((host, port))
+    # server_socket.setblocking(False)
+
+    server_socket.listen(5)
+
+    print(f"Listening to http://{host}:{port} ...\n\n")
+
+    sockets_list.append(server_socket)
+
+    while True:
+        try:
+            read_sockets, _, exception_sockets = select.select(
+                sockets_list, [], sockets_list
+            )
+
+            for notified_socket in read_sockets:
+                if notified_socket == server_socket:
+                    client_socket, client_address = server_socket.accept()
+
+                    add_client(client_socket)
+                    handle_request(server_socket, client_socket)
+                else:
+                    print(notified_socket)
+
+            for notified_socket in exception_sockets:
+                remove_client(notified_socket)
+
+        except Exception as err:
+            print("Something went wrong:", err)
+            break
+        except KeyboardInterrupt:
+            break
+
+    server_socket.close()
 
 
 if __name__ == "__main__":
 
-    server = Server(("127.0.0.1", 8000))
-    server.run()
+    # server = Server(("127.0.0.1", 8000))
+    # server.run()
+
+    runServer("127.0.0.1", 8000)
