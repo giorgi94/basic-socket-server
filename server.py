@@ -79,13 +79,14 @@ class Server:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.bind(socket_address)
+        # self.socket.setblocking(False)
 
-        self.socket.listen(5)
+        self.socket.listen(1)
+
+        self.sockets_list = [self.socket]
 
     def run(self):
         print("Listening on port %s ...\n\n" % self.SERVER_PORT)
-
-        self.sockets_list = [self.socket]
 
         while True:
             try:
@@ -97,17 +98,14 @@ class Server:
                     if notified_socket == self.socket:
                         client_socket, client_address = self.socket.accept()
 
+                        self.sockets_list.append(client_socket)
+                        self.clients.add(client_socket)
+
                         try:
-                            closed = self.handle_request(client_socket)
+                            self.handle_request(client_socket)
                         except Exception as error:
                             print("ERROR:", error)
                             return self.send_bad_request(client_socket)
-
-                        if closed:
-                            continue
-
-                        self.sockets_list.append(client_socket)
-                        self.clients.add(client_socket)
                     else:
                         print("\n\nClient: ", notified_socket)
 
@@ -126,26 +124,20 @@ class Server:
 
         request = HttpRequest(client)
 
-        print(client, request._body.decode())
-        print("---\n\n")
-
         connection = request.headers.get("Connection", "")
 
         if connection == "Upgrade":
             self.upgrade(request, client)
-            return False
-
-        # handlers = {"GET": self.get, "POST": self.post}
-
-        self.get(request, client)
-
-        return True
+        else:
+            self.get(request, client)
 
     def close_client(self, client):
         client.close()
 
         if client in self.clients:
             self.clients.remove(client)
+        if client in self.sockets_list:
+            self.sockets_list.remove(client)
 
     def send_bad_request(self, client: socket.socket):
         badreq = HTTPStatus.BAD_REQUEST
@@ -180,10 +172,7 @@ class Server:
 
         headers = self.prepare_handshake_headers(sec_websocket_key)
 
-        print(headers.decode())
-
         client.sendall(headers)
-        client.close()
 
     def create_socket_accept_key(self, sec_websocket_key: str) -> bytes:
         key = sha1((sec_websocket_key + SEC_WEBSOCKET_KEY).encode())
