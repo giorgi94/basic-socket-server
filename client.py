@@ -1,6 +1,8 @@
 import requests
 import re
 
+"""
+
 from urllib.parse import quote, unquote
 
 # r = requests.get("http://localhost:8000/page/?a=11&b=23")
@@ -30,3 +32,23 @@ data = b"\x72\x84\x84\x80\x47\x49\x46\x49\x32\x49\x48\x49\x32\x83\x119\x105\x116
 
 
 print(data)
+
+"""
+
+
+r = requests.get(
+    "http://localhost:8000",
+    headers={"Connection": "Upgrade", "Sec-WebSocket-Key": "9Vx+wTgIFVnQWJRaxdtYoQ=="},
+)
+
+print(r.status_code)
+print(r.content)
+
+
+# Connection: Upgrade
+# Cookie: _xsrf=2|239c7e35|4244b8edf3f99ad3d4b51f96f96a8bf4|1658684105; csrftoken=lsoHVA5p9Pcflazw6yBA98ZjOquH0muJaRsRoHw9lI3azYhiVGnoc6yyCGxoJSwa; sessionid=mi95erezfij9jbmrsggmy8zocbyx5onm
+# Host: localhost:8000
+# Origin: http://localhost:8000
+# Pragma: no-cache
+# Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits
+#
